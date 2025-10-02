@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Product Logs</h1>
+<ul>
+    {% for log in logs %}
+        <li>{{ log.action }}: {{ log.product.name if log.product.name else log.product['name'] }}</li>
+    {% endfor %}
+</ul>
+{% endblock %}
