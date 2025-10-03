@@ -1,24 +1,48 @@
 # Import required libraries
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_wtf.csrf import CSRFProtect
 from datetime import datetime
+from dotenv import load_dotenv
+from time import time
 import os
 import logging
 from functools import wraps
 
+# Load environment variables from .env file
+load_dotenv()
+
 # Initialize Flask application
 app = Flask(__name__)
 
-# Configure PostgreSQL database
-# Format: postgresql://username:password@localhost:5432/database_name
+# Security Configuration
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['WTF_CSRF_ENABLED'] = True
+
+# Configure PostgreSQL database from environment variable
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     'DATABASE_URL',
     'postgresql://louissader@localhost:5432/lny_products'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize database
+# Initialize database and migrations
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
+
+# Initialize rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri=os.getenv('RATELIMIT_STORAGE_URL', 'memory://')
+)
 
 # Configure logging (important for production applications)
 logging.basicConfig(
@@ -32,22 +56,41 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Product model - represents the products table in PostgreSQL
+# ============================================================================
+# DATABASE MODELS
+# ============================================================================
+
 class Product(db.Model):
-    """Model for storing product information."""
+    """Model for storing product information with database indexes for performance."""
     __tablename__ = 'products'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
-    price = db.Column(db.Numeric(10, 2), nullable=False)  # Price with 2 decimal places
+    price = db.Column(db.Numeric(10, 2), nullable=False)
     category = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Database indexes for query optimization
+    __table_args__ = (
+        db.Index('idx_category', 'category'),
+        db.Index('idx_price', 'price'),
+        db.Index('idx_created_at', 'created_at'),
+    )
 
     def __repr__(self):
         return f'<Product {self.name}>'
 
+    def to_dict(self):
+        """Convert product to dictionary for JSON serialization."""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'price': float(self.price),
+            'category': self.category,
+            'created_at': self.created_at.isoformat()
+        }
 
-# Log model - represents the logs table for tracking all actions
+
 class Log(db.Model):
     """Model for storing action logs (bonus feature)."""
     __tablename__ = 'logs'
@@ -63,6 +106,10 @@ class Log(db.Model):
         return f'<Log {self.action} - {self.product_name}>'
 
 
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
 def log_action(action, product):
     """Log an action (Added/Deleted) with the affected product to the database."""
     log = Log(
@@ -75,102 +122,35 @@ def log_action(action, product):
     db.session.commit()
 
 
-@app.route("/")
-def index():
-    """Display the main page with all products, with optional filtering and sorting."""
-    # Get filter and sort parameters from query string
-    category_filter = request.args.get('category', '')
-    sort_by = request.args.get('sort', '')
-
-    # Build query
-    query = Product.query
-
-    # Apply category filter if specified
-    if category_filter:
-        query = query.filter(Product.category == category_filter)
-
-    # Apply sorting if specified
-    if sort_by == 'price_asc':
-        query = query.order_by(Product.price.asc())
-    elif sort_by == 'price_desc':
-        query = query.order_by(Product.price.desc())
-    else:
-        query = query.order_by(Product.created_at.desc())
-
-    products = query.all()
-
-    # Get all unique categories for the filter dropdown
-    categories = db.session.query(Product.category).distinct().all()
-    categories = [c[0] for c in categories]
-
-    return render_template("index.html", products=products, categories=categories,
-                         selected_category=category_filter, selected_sort=sort_by)
+def log_performance(f):
+    """Decorator to log function execution time for performance monitoring."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        start_time = time()
+        result = f(*args, **kwargs)
+        end_time = time()
+        logger.info(f"{f.__name__} executed in {end_time - start_time:.3f}s")
+        return result
+    return decorated_function
 
 
-@app.route("/add", methods=["GET", "POST"])
-def add_product():
-    """Handle adding new products. GET shows form, POST processes submission."""
-    if request.method == "POST":
-        # Get form data
-        name = request.form["name"]
-        price = request.form["price"]
-        category = request.form["category"]
+def require_api_key(f):
+    """Decorator to require API key authentication for endpoints."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('X-API-Key')
+        expected_key = os.getenv('API_KEY')
 
-        # Create new product entry
-        new_product = Product(
-            name=name,
-            price=price,
-            category=category
-        )
+        if not expected_key or api_key != expected_key:
+            logger.warning(f"Unauthorized API access attempt from {request.remote_addr}")
+            return jsonify({
+                'success': False,
+                'error': 'Invalid or missing API key'
+            }), 401
 
-        # Add to database
-        db.session.add(new_product)
-        db.session.commit()
+        return f(*args, **kwargs)
+    return decorated_function
 
-        # Log the action
-        log_action("Added", new_product)
-
-        # Redirect to main page
-        return redirect(url_for("index"))
-
-    # Show add product form for GET requests
-    return render_template("add_product.html")
-
-
-@app.route("/delete/<int:product_id>")
-def delete_product(product_id):
-    """Delete a product by its ID."""
-    product = Product.query.get(product_id)
-
-    if product:
-        # Log before deleting
-        log_action("Deleted", product)
-
-        # Delete from database
-        db.session.delete(product)
-        db.session.commit()
-
-    return redirect(url_for("index"))
-
-
-@app.route("/logs")
-def logs():
-    """Display all logged actions (bonus feature)."""
-    all_logs = Log.query.order_by(Log.timestamp.desc()).all()
-    return render_template("logs.html", logs=all_logs)
-
-
-@app.route("/api-docs")
-def api_docs():
-    """Display API documentation (like Swagger)."""
-    return render_template("api_docs.html")
-
-
-# ============================================================================
-# REST API ENDPOINTS
-# ============================================================================
-# These endpoints demonstrate REST API design, JSON handling, and HTTP methods
-# Skills required for Python developer role: Flask, REST APIs, JSON, error handling
 
 def validate_product_data(data):
     """Validate product data for API requests."""
@@ -199,7 +179,149 @@ def validate_product_data(data):
     return errors
 
 
+# ============================================================================
+# ERROR HANDLERS
+# ============================================================================
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 Not Found errors."""
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Endpoint not found'}), 404
+    return render_template('404.html'), 404
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 Internal Server errors."""
+    db.session.rollback()  # Rollback any failed database transactions
+    logger.error(f"Internal server error: {str(error)}")
+
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+    return render_template('500.html'), 500
+
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """Handle rate limit exceeded errors."""
+    return jsonify({
+        'success': False,
+        'error': 'Rate limit exceeded. Please try again later.'
+    }), 429
+
+
+# ============================================================================
+# WEB INTERFACE ROUTES
+# ============================================================================
+
+@app.route("/")
+@log_performance
+def index():
+    """Display the main page with all products, with optional filtering and sorting."""
+    category_filter = request.args.get('category', '')
+    sort_by = request.args.get('sort', '')
+
+    query = Product.query
+
+    if category_filter:
+        query = query.filter(Product.category == category_filter)
+
+    if sort_by == 'price_asc':
+        query = query.order_by(Product.price.asc())
+    elif sort_by == 'price_desc':
+        query = query.order_by(Product.price.desc())
+    else:
+        query = query.order_by(Product.created_at.desc())
+
+    products = query.all()
+    categories = db.session.query(Product.category).distinct().all()
+    categories = [c[0] for c in categories]
+
+    return render_template("index.html", products=products, categories=categories,
+                         selected_category=category_filter, selected_sort=sort_by)
+
+
+@app.route("/add", methods=["GET", "POST"])
+def add_product():
+    """Handle adding new products. GET shows form, POST processes submission."""
+    if request.method == "POST":
+        from markupsafe import escape
+
+        # Sanitize inputs to prevent XSS
+        name = escape(request.form["name"].strip())
+        price = request.form["price"]
+        category = escape(request.form["category"].strip())
+
+        # Validate
+        if not name or not price or not category:
+            return render_template("add_product.html",
+                                 error="All fields are required"), 400
+
+        try:
+            price = float(price)
+            if price < 0:
+                return render_template("add_product.html",
+                                     error="Price must be positive"), 400
+        except ValueError:
+            return render_template("add_product.html",
+                                 error="Invalid price format"), 400
+
+        new_product = Product(
+            name=str(name),
+            price=price,
+            category=str(category)
+        )
+
+        db.session.add(new_product)
+        db.session.commit()
+        log_action("Added", new_product)
+
+        logger.info(f"Product added: {new_product.name} (ID: {new_product.id})")
+
+        return redirect(url_for("index"))
+
+    return render_template("add_product.html")
+
+
+@app.route("/delete/<int:product_id>")
+def delete_product(product_id):
+    """Delete a product by its ID."""
+    product = Product.query.get(product_id)
+
+    if product:
+        log_action("Deleted", product)
+        logger.info(f"Product deleted: {product.name} (ID: {product.id})")
+
+        db.session.delete(product)
+        db.session.commit()
+
+    return redirect(url_for("index"))
+
+
+@app.route("/logs")
+def logs():
+    """Display all logged actions (bonus feature)."""
+    all_logs = Log.query.order_by(Log.timestamp.desc()).all()
+    return render_template("logs.html", logs=all_logs)
+
+
+@app.route("/api-docs")
+def api_docs():
+    """Display API documentation (like Swagger)."""
+    return render_template("api_docs.html")
+
+
+# ============================================================================
+# REST API ENDPOINTS
+# ============================================================================
+# These endpoints demonstrate REST API design, JSON handling, and HTTP methods
+# Skills required for Python developer role: Flask, REST APIs, JSON, error handling
+
 @app.route("/api/products", methods=["GET"])
+@limiter.limit("30 per minute")
+@csrf.exempt  # CSRF not needed for GET requests
+@log_performance
 def api_get_products():
     """
     GET /api/products - Retrieve all products with optional filtering
@@ -212,11 +334,9 @@ def api_get_products():
 
         query = Product.query
 
-        # Apply filters
         if category_filter:
             query = query.filter(Product.category == category_filter)
 
-        # Apply sorting
         if sort_by == 'price_asc':
             query = query.order_by(Product.price.asc())
         elif sort_by == 'price_desc':
@@ -225,15 +345,7 @@ def api_get_products():
             query = query.order_by(Product.created_at.desc())
 
         products = query.all()
-
-        # Convert to JSON-serializable format
-        products_data = [{
-            'id': p.id,
-            'name': p.name,
-            'price': float(p.price),
-            'category': p.category,
-            'created_at': p.created_at.isoformat()
-        } for p in products]
+        products_data = [p.to_dict() for p in products]
 
         logger.info(f"API: Retrieved {len(products_data)} products")
 
@@ -252,6 +364,8 @@ def api_get_products():
 
 
 @app.route("/api/products/<int:product_id>", methods=["GET"])
+@limiter.limit("30 per minute")
+@csrf.exempt
 def api_get_product(product_id):
     """
     GET /api/products/<id> - Retrieve a single product by ID
@@ -266,19 +380,11 @@ def api_get_product(product_id):
                 'error': 'Product not found'
             }), 404
 
-        product_data = {
-            'id': product.id,
-            'name': product.name,
-            'price': float(product.price),
-            'category': product.category,
-            'created_at': product.created_at.isoformat()
-        }
-
         logger.info(f"API: Retrieved product {product_id}")
 
         return jsonify({
             'success': True,
-            'data': product_data
+            'data': product.to_dict()
         }), 200
 
     except Exception as e:
@@ -290,11 +396,15 @@ def api_get_product(product_id):
 
 
 @app.route("/api/products", methods=["POST"])
+@limiter.limit("10 per minute")
+@csrf.exempt  # CSRF exempt for API
+@require_api_key  # Require API key for write operations
 def api_create_product():
     """
     POST /api/products - Create a new product
     Body: JSON with name, price, category
     Returns: JSON with created product details
+    Requires: X-API-Key header
     """
     try:
         data = request.get_json()
@@ -305,7 +415,6 @@ def api_create_product():
                 'error': 'Request body must be JSON'
             }), 400
 
-        # Validate data
         errors = validate_product_data(data)
         if errors:
             return jsonify({
@@ -313,7 +422,6 @@ def api_create_product():
                 'errors': errors
             }), 400
 
-        # Create new product
         new_product = Product(
             name=data['name'],
             price=data['price'],
@@ -322,24 +430,14 @@ def api_create_product():
 
         db.session.add(new_product)
         db.session.commit()
-
-        # Log the action
         log_action("Added", new_product)
-
-        product_data = {
-            'id': new_product.id,
-            'name': new_product.name,
-            'price': float(new_product.price),
-            'category': new_product.category,
-            'created_at': new_product.created_at.isoformat()
-        }
 
         logger.info(f"API: Created product {new_product.id} - {new_product.name}")
 
         return jsonify({
             'success': True,
             'message': 'Product created successfully',
-            'data': product_data
+            'data': new_product.to_dict()
         }), 201
 
     except Exception as e:
@@ -352,11 +450,15 @@ def api_create_product():
 
 
 @app.route("/api/products/<int:product_id>", methods=["PUT"])
+@limiter.limit("10 per minute")
+@csrf.exempt
+@require_api_key
 def api_update_product(product_id):
     """
     PUT /api/products/<id> - Update an existing product
     Body: JSON with fields to update (name, price, category)
     Returns: JSON with updated product details
+    Requires: X-API-Key header
     """
     try:
         product = Product.query.get(product_id)
@@ -375,7 +477,6 @@ def api_update_product(product_id):
                 'error': 'Request body must be JSON'
             }), 400
 
-        # Validate data
         errors = validate_product_data(data)
         if errors:
             return jsonify({
@@ -383,27 +484,18 @@ def api_update_product(product_id):
                 'errors': errors
             }), 400
 
-        # Update product
         product.name = data.get('name', product.name)
         product.price = data.get('price', product.price)
         product.category = data.get('category', product.category)
 
         db.session.commit()
 
-        product_data = {
-            'id': product.id,
-            'name': product.name,
-            'price': float(product.price),
-            'category': product.category,
-            'created_at': product.created_at.isoformat()
-        }
-
         logger.info(f"API: Updated product {product_id}")
 
         return jsonify({
             'success': True,
             'message': 'Product updated successfully',
-            'data': product_data
+            'data': product.to_dict()
         }), 200
 
     except Exception as e:
@@ -416,10 +508,14 @@ def api_update_product(product_id):
 
 
 @app.route("/api/products/<int:product_id>", methods=["DELETE"])
+@limiter.limit("10 per minute")
+@csrf.exempt
+@require_api_key
 def api_delete_product(product_id):
     """
     DELETE /api/products/<id> - Delete a product
     Returns: JSON confirmation message
+    Requires: X-API-Key header
     """
     try:
         product = Product.query.get(product_id)
@@ -430,7 +526,6 @@ def api_delete_product(product_id):
                 'error': 'Product not found'
             }), 404
 
-        # Log before deleting
         log_action("Deleted", product)
 
         db.session.delete(product)
@@ -453,6 +548,9 @@ def api_delete_product(product_id):
 
 
 @app.route("/api/export/products", methods=["GET"])
+@limiter.limit("20 per minute")
+@csrf.exempt
+@log_performance
 def api_export_products():
     """
     GET /api/export/products - Export products data
@@ -473,17 +571,14 @@ def api_export_products():
         products = query.order_by(Product.created_at.desc()).all()
 
         if export_format == 'csv':
-            # CSV export for ETL/data pipeline use cases
             import io
             import csv
 
             output = io.StringIO()
             writer = csv.writer(output)
 
-            # Write header
             writer.writerow(['ID', 'Name', 'Price', 'Category', 'Created At'])
 
-            # Write data
             for p in products:
                 writer.writerow([
                     p.id,
@@ -502,14 +597,8 @@ def api_export_products():
                 'Content-Disposition': 'attachment; filename=products_export.csv'
             }
 
-        else:  # JSON format (default)
-            products_data = [{
-                'id': p.id,
-                'name': p.name,
-                'price': float(p.price),
-                'category': p.category,
-                'created_at': p.created_at.isoformat()
-            } for p in products]
+        else:
+            products_data = [p.to_dict() for p in products]
 
             logger.info(f"API: Exported {len(products)} products as JSON")
 
@@ -529,6 +618,9 @@ def api_export_products():
 
 
 @app.route("/api/stats", methods=["GET"])
+@limiter.limit("20 per minute")
+@csrf.exempt
+@log_performance
 def api_get_stats():
     """
     GET /api/stats - Get database statistics
@@ -537,10 +629,8 @@ def api_get_stats():
     Demonstrates SQL aggregation and database optimization skills
     """
     try:
-        # Get total products
         total_products = Product.query.count()
 
-        # Get products by category
         category_stats = db.session.query(
             Product.category,
             db.func.count(Product.id).label('count'),
@@ -555,7 +645,6 @@ def api_get_stats():
             'total_value': float(stat.total_value) if stat.total_value else 0
         } for stat in category_stats]
 
-        # Get recent activity from logs
         recent_logs = Log.query.order_by(Log.timestamp.desc()).limit(10).all()
 
         recent_activity = [{
@@ -583,10 +672,10 @@ def api_get_stats():
         }), 500
 
 
-# Run the Flask application in debug mode
+# Run the Flask application
 if __name__ == "__main__":
-    # Create tables if they don't exist
     with app.app_context():
         db.create_all()
 
-    app.run(debug=True)
+    debug_mode = os.getenv('DEBUG', 'True').lower() == 'true'
+    app.run(debug=debug_mode)

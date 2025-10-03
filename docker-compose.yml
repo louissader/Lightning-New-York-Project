@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: lny_postgres
+    environment:
+      POSTGRES_DB: lny_products
+      POSTGRES_USER: lny_user
+      POSTGRES_PASSWORD: lny_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lny_user -d lny_products"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Flask Application
+  web:
+    build: .
+    container_name: lny_flask_app
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://lny_user:lny_password@db:5432/lny_products
+      SECRET_KEY: docker-secret-key-change-in-production
+      API_KEY: docker-api-key-12345
+      FLASK_ENV: development
+      DEBUG: "True"
+      RATELIMIT_STORAGE_URL: memory://
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: python app.py
+
+volumes:
+  postgres_data:
