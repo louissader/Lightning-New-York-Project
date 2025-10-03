@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>API Documentation</h1>
+<p style="text-align: center; color: #6c757d; margin-bottom: 30px;">
+    RESTful API for Product Management System
+</p>
+
+<div class="api-docs">
+    <section class="api-section">
+        <h2>📚 Overview</h2>
+        <p>This API provides programmatic access to the Product Management System. All endpoints return JSON responses and follow REST conventions.</p>
+
+        <div class="api-info">
+            <p><strong>Base URL:</strong> <code>http://localhost:5000/api</code></p>
+            <p><strong>Response Format:</strong> JSON</p>
+            <p><strong>HTTP Methods:</strong> GET, POST, PUT, DELETE</p>
+        </div>
+    </section>
+
+    <section class="api-section">
+        <h2>📋 Endpoints</h2>
+
+        <!-- GET All Products -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="path">/api/products</span>
+            </div>
+            <p>Retrieve all products with optional filtering and sorting</p>
+
+            <h4>Query Parameters:</h4>
+            <table class="params-table">
+                <tr>
+                    <td><code>category</code></td>
+                    <td>string</td>
+                    <td>Filter by category (optional)</td>
+                </tr>
+                <tr>
+                    <td><code>sort</code></td>
+                    <td>string</td>
+                    <td>Sort order: <code>price_asc</code> or <code>price_desc</code> (optional)</td>
+                </tr>
+            </table>
+
+            <h4>Example Request:</h4>
+            <pre><code>curl http://localhost:5000/api/products?category=Lighting&sort=price_asc</code></pre>
+
+            <h4>Example Response:</h4>
+            <pre><code>{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "id": 1,
+      "name": "LED Bulb",
+      "price": 9.99,
+      "category": "Lighting",
+      "created_at": "2025-10-03T12:00:00"
+    }
+  ]
+}</code></pre>
+        </div>
+
+        <!-- GET Single Product -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="path">/api/products/&lt;id&gt;</span>
+            </div>
+            <p>Retrieve a single product by ID</p>
+
+            <h4>Example Request:</h4>
+            <pre><code>curl http://localhost:5000/api/products/1</code></pre>
+
+            <h4>Example Response:</h4>
+            <pre><code>{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "LED Bulb",
+    "price": 9.99,
+    "category": "Lighting",
+    "created_at": "2025-10-03T12:00:00"
+  }
+}</code></pre>
+        </div>
+
+        <!-- POST Create Product -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <span class="path">/api/products</span>
+            </div>
+            <p>Create a new product</p>
+
+            <h4>Request Body:</h4>
+            <table class="params-table">
+                <tr>
+                    <td><code>name</code></td>
+                    <td>string</td>
+                    <td>Product name (required, max 200 chars)</td>
+                </tr>
+                <tr>
+                    <td><code>price</code></td>
+                    <td>number</td>
+                    <td>Product price (required, positive number)</td>
+                </tr>
+                <tr>
+                    <td><code>category</code></td>
+                    <td>string</td>
+                    <td>Product category (required, max 100 chars)</td>
+                </tr>
+            </table>
+
+            <h4>Example Request:</h4>
+            <pre><code>curl -X POST http://localhost:5000/api/products \
+  -H "Content-Type: application/json" \
+  -d '{"name": "LED Bulb", "price": 9.99, "category": "Lighting"}'</code></pre>
+
+            <h4>Example Response:</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Product created successfully",
+  "data": {
+    "id": 1,
+    "name": "LED Bulb",
+    "price": 9.99,
+    "category": "Lighting",
+    "created_at": "2025-10-03T12:00:00"
+  }
+}</code></pre>
+        </div>
+
+        <!-- PUT Update Product -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method put">PUT</span>
+                <span class="path">/api/products/&lt;id&gt;</span>
+            </div>
+            <p>Update an existing product</p>
+
+            <h4>Example Request:</h4>
+            <pre><code>curl -X PUT http://localhost:5000/api/products/1 \
+  -H "Content-Type: application/json" \
+  -d '{"name": "LED Bulb Pro", "price": 12.99, "category": "Lighting"}'</code></pre>
+        </div>
+
+        <!-- DELETE Product -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method delete">DELETE</span>
+                <span class="path">/api/products/&lt;id&gt;</span>
+            </div>
+            <p>Delete a product</p>
+
+            <h4>Example Request:</h4>
+            <pre><code>curl -X DELETE http://localhost:5000/api/products/1</code></pre>
+
+            <h4>Example Response:</h4>
+            <pre><code>{
+  "success": true,
+  "message": "Product deleted successfully"
+}</code></pre>
+        </div>
+
+        <!-- Export Endpoint -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="path">/api/export/products</span>
+            </div>
+            <p>Export products data (ETL functionality)</p>
+
+            <h4>Query Parameters:</h4>
+            <table class="params-table">
+                <tr>
+                    <td><code>format</code></td>
+                    <td>string</td>
+                    <td>Export format: <code>json</code> or <code>csv</code> (default: json)</td>
+                </tr>
+                <tr>
+                    <td><code>category</code></td>
+                    <td>string</td>
+                    <td>Filter by category (optional)</td>
+                </tr>
+            </table>
+
+            <h4>Example Request (JSON):</h4>
+            <pre><code>curl http://localhost:5000/api/export/products?format=json</code></pre>
+
+            <h4>Example Request (CSV):</h4>
+            <pre><code>curl http://localhost:5000/api/export/products?format=csv -o products.csv</code></pre>
+        </div>
+
+        <!-- Stats Endpoint -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <span class="path">/api/stats</span>
+            </div>
+            <p>Get database statistics and metrics</p>
+
+            <h4>Example Request:</h4>
+            <pre><code>curl http://localhost:5000/api/stats</code></pre>
+
+            <h4>Example Response:</h4>
+            <pre><code>{
+  "success": true,
+  "data": {
+    "total_products": 10,
+    "categories": [
+      {
+        "category": "Lighting",
+        "count": 5,
+        "average_price": 25.50,
+        "total_value": 127.50
+      }
+    ],
+    "recent_activity": [...]
+  }
+}</code></pre>
+        </div>
+    </section>
+
+    <section class="api-section">
+        <h2>❌ Error Handling</h2>
+        <p>All errors return appropriate HTTP status codes with JSON error messages:</p>
+
+        <div class="error-example">
+            <h4>400 Bad Request - Validation Error:</h4>
+            <pre><code>{
+  "success": false,
+  "errors": ["Product name is required", "Price must be a positive number"]
+}</code></pre>
+        </div>
+
+        <div class="error-example">
+            <h4>404 Not Found:</h4>
+            <pre><code>{
+  "success": false,
+  "error": "Product not found"
+}</code></pre>
+        </div>
+
+        <div class="error-example">
+            <h4>500 Internal Server Error:</h4>
+            <pre><code>{
+  "success": false,
+  "error": "Failed to retrieve products"
+}</code></pre>
+        </div>
+    </section>
+
+    <section class="api-section">
+        <h2>💡 Use Cases</h2>
+        <ul>
+            <li><strong>Integration:</strong> Connect this system to external e-commerce platforms</li>
+            <li><strong>ETL Pipelines:</strong> Export data for analytics or data warehouses</li>
+            <li><strong>Mobile Apps:</strong> Build mobile applications using these APIs</li>
+            <li><strong>Reporting:</strong> Generate reports using the stats endpoint</li>
+        </ul>
+    </section>
+</div>
+
+<style>
+.api-docs {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.api-section {
+    margin-bottom: 40px;
+}
+
+.api-section h2 {
+    color: #667eea;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #eee;
+}
+
+.api-info {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+.api-info code {
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+}
+
+.endpoint {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.endpoint-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.method {
+    padding: 6px 12px;
+    border-radius: 5px;
+    font-weight: 600;
+    font-size: 12px;
+    margin-right: 15px;
+    color: white;
+}
+
+.method.get {
+    background: #28a745;
+}
+
+.method.post {
+    background: #007bff;
+}
+
+.method.put {
+    background: #ffc107;
+    color: #333;
+}
+
+.method.delete {
+    background: #dc3545;
+}
+
+.path {
+    font-family: 'Courier New', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.params-table {
+    width: 100%;
+    margin: 15px 0;
+    border-collapse: collapse;
+}
+
+.params-table td {
+    padding: 8px;
+    border: 1px solid #eee;
+}
+
+.params-table td:first-child {
+    font-family: 'Courier New', monospace;
+    background: #f8f9fa;
+    font-weight: 600;
+    width: 25%;
+}
+
+.params-table td:nth-child(2) {
+    color: #667eea;
+    font-weight: 600;
+    width: 15%;
+}
+
+pre {
+    background: #2d2d2d;
+    color: #f8f8f2;
+    padding: 15px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 15px 0;
+}
+
+pre code {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.error-example {
+    margin: 20px 0;
+}
+
+.error-example h4 {
+    color: #555;
+    margin-bottom: 10px;
+}
+</style>
+
+<div style="text-align: center; margin-top: 30px;">
+    <a href="/" style="color: #667eea; text-decoration: none;">← Back to Product List</a>
+</div>
+{% endblock %}

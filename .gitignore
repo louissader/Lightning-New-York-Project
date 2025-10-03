@@ -45,3 +45,7 @@ logs.json
 *.db
 *.sqlite
 *.sqlite3
+
+# Application logs
+app.log
+*.log
