@@ -2,15 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Product Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LNY Product Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <nav>
-        <a href="/">Home</a> |
-        <a href="/add">Add Product</a> |
-        <a href="/logs">Logs</a>
-    </nav>
-    <hr>
-    {% block content %}{% endblock %}
+    <div class="container">
+        <nav>
+            <a href="/">Home</a>
+            <a href="/add">Add Product</a>
+            <a href="/logs">Logs</a>
+        </nav>
+        {% block content %}{% endblock %}
+    </div>
 </body>
 </html>

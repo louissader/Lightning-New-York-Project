@@ -1,9 +1,43 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Product Logs</h1>
-<ul>
-    {% for log in logs %}
-        <li>{{ log.action }}: {{ log.product.name if log.product.name else log.product['name'] }}</li>
-    {% endfor %}
-</ul>
+<h1>Activity Logs</h1>
+<p style="text-align: center; color: #6c757d; margin-bottom: 20px;">
+    Track all product additions and deletions
+</p>
+
+{% if logs %}
+<table class="logs-table">
+    <thead>
+        <tr>
+            <th>Action</th>
+            <th>Product Name</th>
+            <th>Price</th>
+            <th>Category</th>
+            <th>Timestamp</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td class="{% if log.action == 'Added' %}action-added{% else %}action-deleted{% endif %}">
+                {{ log.action }}
+            </td>
+            <td>{{ log.product_name }}</td>
+            <td class="price">${{ "%.2f"|format(log.product_price) if log.product_price else 'N/A' }}</td>
+            <td>{{ log.product_category }}</td>
+            <td class="timestamp">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="empty-state">
+    <p>No activity logs yet.</p>
+    <a href="{{ url_for('add_product') }}" class="btn" style="max-width: 300px; margin: 0 auto; display: block;">Add Your First Product</a>
+</div>
+{% endif %}
+
+<div style="text-align: center; margin-top: 20px;">
+    <a href="/" style="color: #667eea; text-decoration: none;">← Back to Product List</a>
+</div>
 {% endblock %}
