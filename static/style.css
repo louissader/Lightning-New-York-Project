@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1e3a8a 0%, #60a5fa 100%);
     min-height: 100vh;
     padding: 20px;
 }
@@ -28,7 +28,7 @@ h1 {
     font-size: 2.2rem;
     text-align: center;
     padding-bottom: 15px;
-    border-bottom: 3px solid #667eea;
+    border-bottom: 3px solid #1e3a8a;
 }
 
 h2 {
@@ -39,7 +39,7 @@ h2 {
 
 /* Navigation */
 nav {
-    background: #667eea;
+    background: #1e3a8a;
     padding: 15px 20px;
     border-radius: 10px;
     margin-bottom: 30px;
@@ -56,7 +56,7 @@ nav a {
 }
 
 nav a:hover {
-    background: #5568d3;
+    background: #1e40af;
 }
 
 /* Filter and Sort Section */
@@ -88,12 +88,12 @@ nav a:hover {
 
 .filter-section select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #1e3a8a;
 }
 
 .filter-section button {
     padding: 8px 20px;
-    background: #667eea;
+    background: #1e3a8a;
     color: white;
     border: none;
     border-radius: 5px;
@@ -104,7 +104,7 @@ nav a:hover {
 }
 
 .filter-section button:hover {
-    background: #5568d3;
+    background: #1e40af;
 }
 
 .filter-section .clear-btn {
@@ -148,7 +148,7 @@ input[type="text"]:focus,
 input[type="number"]:focus,
 select:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: #1e3a8a;
 }
 
 /* Button Styles */
@@ -156,7 +156,7 @@ button[type="submit"],
 .btn {
     width: 100%;
     padding: 12px 25px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1e3a8a 0%, #60a5fa 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -169,7 +169,7 @@ button[type="submit"],
 button[type="submit"]:hover,
 .btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 5px 15px rgba(30, 58, 138, 0.4);
 }
 
 button[type="submit"]:active,
@@ -189,7 +189,7 @@ table {
 }
 
 thead {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1e3a8a 0%, #60a5fa 100%);
 }
 
 th {

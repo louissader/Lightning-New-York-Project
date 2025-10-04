@@ -3,6 +3,7 @@
 <h1>Add New Product</h1>
 
 <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
         <label for="name">Product Name *</label>
         <input type="text" id="name" name="name" required placeholder="Enter product name">
@@ -15,7 +16,19 @@
 
     <div class="form-group">
         <label for="category">Category *</label>
-        <input type="text" id="category" name="category" required placeholder="Enter category (e.g., Electronics, Furniture)">
+        <select id="category" name="category" required>
+            <option value="">-- Select a Category --</option>
+            <option value="Chandeliers">Chandeliers</option>
+            <option value="Pendant Lights">Pendant Lights</option>
+            <option value="Ceiling Lights">Ceiling Lights</option>
+            <option value="Wall Sconces">Wall Sconces</option>
+            <option value="Table Lamps">Table Lamps</option>
+            <option value="Floor Lamps">Floor Lamps</option>
+            <option value="Outdoor Lighting">Outdoor Lighting</option>
+            <option value="LED Lights">LED Lights</option>
+            <option value="Bathroom Vanity Lights">Bathroom Vanity Lights</option>
+            <option value="Track Lighting">Track Lighting</option>
+        </select>
     </div>
 
     <button type="submit">Add Product</button>
