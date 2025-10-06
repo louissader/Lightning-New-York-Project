@@ -20,4 +20,6 @@ echo ""
 echo "Press Ctrl+C to stop the server"
 echo ""
 
-python3 fastapi_app.py
+# Activate virtual environment and run
+source .venv/bin/activate
+python fastapi_app.py
