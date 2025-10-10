@@ -38,7 +38,7 @@ cp .env.example .env
 psql postgres -c "CREATE DATABASE lny_products;"
 
 # 4. Run the application
-./run.sh
+./scripts/run.sh
 
 # Access at http://localhost:5000
 ```
@@ -46,7 +46,7 @@ psql postgres -c "CREATE DATABASE lny_products;"
 ### Optional: FastAPI Server
 ```bash
 # Run FastAPI alongside Flask (port 8000)
-./run_fastapi.sh
+./scripts/run_fastapi.sh
 
 # Interactive docs: http://localhost:8000/docs
 ```
@@ -323,6 +323,63 @@ Full API documentation available at: http://localhost:5000/api-docs
 
 ---
 
+---
+
+## 🔧 Running Flask and FastAPI Together
+
+**Yes! You can run both apps simultaneously to compare them.**
+
+### Terminal 1 - Flask (Port 5000)
+```bash
+./scripts/run.sh
+# Access: http://localhost:5000
+# Web interface + API
+```
+
+### Terminal 2 - FastAPI (Port 8000)
+```bash
+./scripts/run_fastapi.sh
+# Access: http://localhost:8000
+# Interactive docs: http://localhost:8000/docs
+```
+
+### Terminal 3 - Database Viewer
+```bash
+./scripts/view_db.sh
+# View PostgreSQL data
+```
+
+**Why run both?**
+- Compare Flask vs FastAPI implementations
+- See automatic FastAPI docs at `/docs`
+- Both share the same PostgreSQL database
+- Add product in Flask → See it in FastAPI instantly!
+
+---
+
+## 📂 Project Files
+
+**Essential Documentation:**
+- `README.md` - This file (complete project documentation)
+
+**Main Applications:**
+- `app.py` - Flask application (681 lines)
+  - Half web routes, half REST API endpoints
+- `fastapi_app.py` - FastAPI alternative (250 lines)
+  - API-only with automatic documentation
+
+**Helper Scripts:**
+- `scripts/run.sh` - Start Flask app
+- `scripts/run_fastapi.sh` - Start FastAPI app
+- `scripts/view_db.sh` - Interactive database viewer
+
+**Configuration:**
+- `.env` - Environment variables (secrets)
+- `requirements.txt` - Python dependencies
+- `docker-compose.yml` - Docker setup
+
+---
+
 ## 📝 License & Submission
 
 - **Candidate**: Louis Sader
@@ -335,7 +392,7 @@ Full API documentation available at: http://localhost:5000/api-docs
 
 ## 🙏 Thank You
 
-Thank you again for this opportunity to demonstrate my skills. This project showcases not just the ability to meet requirements, but the drive to build production-ready applications with professional best practices. I'm excited about the possibility of bringing these skills to the Lighting New York team and contributing to your technology initiatives.
+Thank you for this opportunity to demonstrate my skills. This project showcases not just the ability to meet requirements, but the drive to build production-ready applications with professional best practices. I'm excited about bringing these skills to the Lighting New York team and contributing to your technology initiatives.
 
 I look forward to discussing this project and how my approach aligns with LNY's development standards!
 

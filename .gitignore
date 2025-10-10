@@ -49,3 +49,8 @@ logs.json
 # Application logs
 app.log
 *.log
+
+# Study materials (personal notes, not for submission)
+docs/
+*DEEP_DIVE.md
+*EXPLANATION.md
